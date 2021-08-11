@@ -1,4 +1,5 @@
 from inspect import signature
+import random as rand
 
 def P(S):
     T = set()
@@ -148,13 +149,8 @@ class L:
                                                             self.__name__ = 'REG'
                                                         elif [type(M[2](q, l)) for q in M[0] for l in M[1] | {''}] == [set] * (len(M[0]) * len(M[1] | {''})):
                                                             if [M[2](q, l) <= M[0] for q in M[0] for l in M[1] | {''}] == [True] * (len(M[0]) * len(M[1] | {''})):
-                                                                Q = P(M[0])
-                                                                q0 = {M[3]}
-                                                                for q in M[2](M[3], ''):
-                                                                    q0.add(q)
-                                                                q0 = frozenset(q0)
                                                                 dfa = dict()
-                                                                for R in Q:
+                                                                for R in P(M[0]):
                                                                     dfa[R] = dict()
                                                                     if R == frozenset():
                                                                         for l in M[1]:
@@ -170,11 +166,7 @@ class L:
                                                                                     for locals()['q\''] in M[2](q, ''):
                                                                                         E.add(locals()['q\''])
                                                                                 dfa[R][l] = dfa[R][l] | frozenset(E)
-                                                                F = set()
-                                                                for R in Q:
-                                                                    if set(R) & M[4] != set():
-                                                                        F.add(R)
-                                                                self._M = (Q, M[1], lambda R, l: dfa[R][l], q0, F)
+                                                                self._M = (P(M[0]), M[1], lambda R, l: dfa[R][l], frozenset({M[3]} | {q for q in M[2](M[3], '')}), {R for R in P(M[0]) if set(R) & M[4] != set()})
                                                                 self.__name__ = 'REG'
             elif len(M) == 6:
                 if type(M[0]) in {set}:
@@ -379,6 +371,387 @@ class L:
         return self != other
     def __ge__(self, other):
         return self > other or self == other
+    def __invert__(self):
+        if len(self._M) == 5:
+            return L((self._M[0], self._M[1], lambda q, l: self._M[2](q, l), self._M[3], self._M[0] - self._M[4]))
+    def __and__(self, other):
+        if len(self._M) == 5:
+            if len(other._M) == 5:
+                dfa = dict()
+                for x in self._M[0]:
+                    for y in other._M[0]:
+                        dfa[(x, y)] = dict()
+                        for l in self._M[1] | other._M[1]:
+                            dfa[(x, y)][l] = (self._M[2](x, l), other._M[2](y, l))
+                return L(({(x, y) for x in self._M[0] for y in other._M[0]}, self._M[1] | other._M[1], lambda q, l: dfa[q][l], (self._M[3], other._M[3]), {(x, y) for x in self._M[0] for y in other._M[0] if x in self._M[4] and y in other._M[4]}))
+    def __or__(self, other):
+        if len(self._M) == 5:
+            if len(other._M) == 5:
+                dfa = dict()
+                for x in self._M[0]:
+                    for y in other._M[0]:
+                        dfa[(x, y)] = dict()
+                        for l in self._M[1] | other._M[1]:
+                            dfa[(x, y)][l] = (self._M[2](x, l), other._M[2](y, l))
+                return L(({(x, y) for x in self._M[0] for y in other._M[0]}, self._M[1] | other._M[1], lambda q, l: dfa[q][l], (self._M[3], other._M[3]), {(x, y) for x in self._M[0] for y in other._M[0] if x in self._M[4] or y in other._M[4]}))
+            elif len(other._M) == 6:
+                R = dict()
+                for q in self._M[0]:
+                    R[''.join(['Q', str(q)])] = set()
+                    if q in self._M[4]:
+                        R[''.join(['Q', str(q)])].add('')
+                    for l in self._M[1]:
+                        R[''.join(['Q', str(q)])].add('\u0000'.join([l, ''.join(['Q', str(self._M[2](q, l))])]))
+                return L((set(R.keys()), self._M[1], R, ''.join(['Q', str(self._M[3])]))) | L(other._M)
+        elif len(self._M) == 6:
+            if len(other._M) == 5:
+                return other | self
+            elif len(other._M) == 6:
+                pda1 = dict()
+                for q in self._M[0]:
+                    pda1[list(self._M[0]).index(q)+1] = dict()
+                    for a in self._M[1] | {''}:
+                        pda1[list(self._M[0]).index(q)+1][a] = dict()
+                        for b in self._M[2] | {''}:
+                            pda1[list(self._M[0]).index(q)+1][a][b] = set()
+                            for r in self._M[0]:
+                                for l in self._M[2] | {''}:
+                                    if (r, l) in self._M[3](q, a, b):
+                                        if b != '' and l == '' or b == '' and l != '':
+                                            pda1[list(self._M[0]).index(q)+1][a][b].add((list(self._M[0]).index(r)+1, l))
+                                        elif b != '' and l != '':
+                                            pda1[list(self._M[0]).index(q)+1][a][b].add((len(self._M[0])+list(self._M[0]).index(q)+1, ''))
+                                            if list(self._M[0]).index(q) + 1 + len(self._M[0]) not in pda1:
+                                                pda1[list(self._M[0]).index(q)+1+len(self._M[0])] = dict()
+                                                for x in self._M[1] | {''}:
+                                                    pda1[list(self._M[0]).index(q)+1+len(self._M[0])][x] = dict()
+                                                    for y in self._M[2] | {''}:
+                                                        pda1[list(self._M[0]).index(q)+1+len(self._M[0])][x][y] = set()
+                                            pda1[list(self._M[0]).index(q)+1+len(self._M[0])][''][''].add((list(self._M[0]).index(r)+1, l))
+                                        elif b == '' and l == '':
+                                            i = rand.randint(0, len(self._M[2]) - 1)
+                                            pda1[list(self._M[0]).index(q)+1][a][b].add((len(self._M[0])+list(self._M[0]).index(q)+1, list(self._M[2])[i]))
+                                            if list(self._M[0]).index(q) + 1 + len(self._M[0]) not in pda1:
+                                                pda1[list(self._M[0]).index(q)+1+len(self._M[0])] = dict()
+                                                for x in self._M[1] | {''}:
+                                                    pda1[list(self._M[0]).index(q)+1+len(self._M[0])][x] = dict()
+                                                    for y in self._M[1] | {''}:
+                                                        pda1[list(self._M[0]).index(q)+1+len(self._M[0])][x][y] = set()
+                                            pda1[list(self._M[0]).index(q)+1+len(self._M[0])][''][list(self._M[2])[i]].add((list(self._M[0]).index(r)+1, l))
+                i = rand.randint(0, len(self._M[2]) - 1)
+                x = max(pda1.keys())
+                for q in self._M[5]:
+                    pda1[list(self._M[0]).index(q)+1][''][''].add((x + 1, list(self._M[2])[i]))
+                pda1[x+1] = dict()
+                for a in self._M[1] | {''}:
+                    pda1[x+1][a] = dict()
+                    for b in self._M[2] | {''}:
+                        pda1[x+1][a][b] = set()
+                        if a == '' and b == list(self._M[2])[i]:
+                            pda1[x+1][a][b].add((x + 2, ''))
+                pda1[x+2] = dict()
+                for a in self._M[1] | {''}:
+                    pda1[x+2][a] = dict()
+                    for b in self._M[2] | {''}:
+                        pda1[x+2][a][b] = set()
+                R1 = dict()
+                for p in set(pda1.keys()):
+                    if 'A({}, {})'.format(p, p) not in R1:
+                        R1['A({}, {})'.format(p, p)] = set()
+                    R1['A({}, {})'.format(p, p)].add('')
+                for p in set(pda1.keys()):
+                    for q in set(pda1.keys()):
+                        for r in set(pda1.keys()):
+                            if 'A({}, {})'.format(p, q) not in R1:
+                                R1['A({}, {})'.format(p, q)] = set()
+                            R1['A({}, {})'.format(p, q)].add('A({}, {})\u0000A({}, {})'.format(p, r, r, q))
+                for p in set(pda1.keys()):
+                    for r in set(pda1.keys()):
+                        for s in set(pda1.keys()):
+                            for q in set(pda1.keys()):
+                                for a in self._M[1] | {''}:
+                                    for b in self._M[1] | {''}:
+                                        for u in self._M[2]:
+                                            if 'A({}, {})'.format(p, q) not in R1:
+                                                R1['A({}, {})'.format(p, q)] = set()
+                                            if (r, u) in pda1[p][a][''] and (q, '') in pda1[s][b][u]:
+                                                R1['A({}, {})'.format(p, q)].add('{}{}A({}, {}){}{}'.format(a, '\u0000' if a != '' else '', r, s, '\u0000' if b != '' else '', b))
+                pda2 = dict()
+                for q in other._M[0]:
+                    pda2[list(other._M[0]).index(q)+1] = dict()
+                    for a in other._M[1] | {''}:
+                        pda2[list(other._M[0]).index(q)+1][a] = dict()
+                        for b in other._M[2] | {''}:
+                            pda2[list(other._M[0]).index(q)+1][a][b] = set()
+                            for r in other._M[0]:
+                                for l in other._M[2] | {''}:
+                                    if (r, l) in other._M[3](q, a, b):
+                                        if b != '' and l == '' or b == '' and l != '':
+                                            pda2[list(other._M[0]).index(q)+1][a][b].add((list(other._M[0]).index(r)+1, l))
+                                        elif b != '' and l != '':
+                                            pda2[list(other._M[0]).index(q)+1][a][b].add((len(other._M[0])+list(other._M[0]).index(q)+1, ''))
+                                            if list(other._M[0]).index(q) + 1 + len(other._M[0]) not in pda2:
+                                                pda2[list(other._M[0]).index(q)+1+len(other._M[0])] = dict()
+                                                for x in other._M[1] | {''}:
+                                                    pda2[list(other._M[0]).index(q)+1+len(other._M[0])][x] = dict()
+                                                    for y in other._M[2] | {''}:
+                                                        pda2[list(other._M[0]).index(q)+1+len(other._M[0])][x][y] = set()
+                                            pda2[list(other._M[0]).index(q)+1+len(other._M[0])][''][''].add((list(other._M[0]).index(r)+1, l))
+                                        elif b == '' and l == '':
+                                            i = rand.randint(0, len(other._M[2]) - 1)
+                                            pda2[list(other._M[0]).index(q)+1][a][b].add((len(other._M[0])+list(other._M[0]).index(q)+1, list(other._M[2])[i]))
+                                            if list(other._M[0]).index(q) + 1 + len(other._M[0]) not in pda2:
+                                                pda2[list(other._M[0]).index(q)+1+len(other._M[0])] = dict()
+                                                for x in other._M[1] | {''}:
+                                                    pda2[list(other._M[0]).index(q)+1+len(other._M[0])][x] = dict()
+                                                    for y in other._M[2] | {''}:
+                                                        pda2[list(other._M[0]).index(q)+1+len(other._M[0])][x][y] = set()
+                                            pda2[list(other._M[0]).index(q)+1+len(other._M[0])][''][list(other._M[2])[i]].add((list(other._M[0]).index(r)+1, l))
+                i = rand.randint(0, len(other._M[2]) - 1)
+                x = max(pda2.keys())
+                for q in other._M[5]:
+                    pda2[list(other._M[0]).index(q)+1][''][''].add((x + 1, list(other._M[2])[i]))
+                pda2[x+1] = dict()
+                for a in other._M[1] | {''}:
+                    pda2[x+1][a] = dict()
+                    for b in other._M[2] | {''}:
+                        pda2[x+1][a][b] = set()
+                        if a == '' and b == list(other._M[2])[i]:
+                            pda2[x+1][a][b].add((x + 2, ''))
+                pda2[x+2] = dict()
+                for a in other._M[1] | {''}:
+                    pda2[x+2][a] = dict()
+                    for b in other._M[2] | {''}:
+                        pda2[x+2][a][b] = set()
+                R2 = dict()
+                for p in set(pda2.keys()):
+                    if 'B({}, {})'.format(p, p) not in R2:
+                        R2['B({}, {})'.format(p, p)] = set()
+                    R2['B({}, {})'.format(p, p)].add('')
+                for p in set(pda2.keys()):
+                    for q in set(pda2.keys()):
+                        for r in set(pda2.keys()):
+                            if 'B({}, {})'.format(p, q) not in R2:
+                                R2['B({}, {})'.format(p, q)] = set()
+                            R2['B({}, {})'.format(p, q)].add('B({}, {})\u0000B({}, {})'.format(p, r, r, q))
+                for p in set(pda2.keys()):
+                    for r in set(pda2.keys()):
+                        for s in set(pda2.keys()):
+                            for q in set(pda2.keys()):
+                                for a in other._M[1] | {''}:
+                                    for b in other._M[1] | {''}:
+                                        for u in other._M[2]:
+                                            if 'B({}, {})'.format(p, q) not in R2:
+                                                R2['B({}, {})'.format(p, q)] = set()
+                                            if (r, u) in pda2[p][a][''] and (q, '') in pda2[s][b][u]:
+                                                R2['B({}, {})'.format(p, q)].add('{}{}B({}, {}){}{}'.format(a, '\u0000' if a != '' else '', r, s, '\u0000' if b != '' else '', b))
+                R = R1
+                R.update(R2)
+                R.update({'S': {'A({}, {})'.format(min(pda1.keys()), max(pda1.keys())), 'B({}, {})'.format(min(pda2.keys()), max(pda2.keys()))}})
+                return L((set(R1.keys()) | set(R2.keys()) | {'S'}, self._M[1] | other._M[1], R, 'S'))
+    def __add__(self, other):
+        if len(self._M) == 5:
+            if len(other._M) == 5:
+                nfa1 = dict()
+                for q in self._M[0]:
+                    nfa1[list(self._M[0]).index(q)+1] = dict()
+                    for l in self._M[1] | {''}:
+                        nfa1[list(self._M[0]).index(q)+1][l] = set()
+                        if l == '':
+                            nfa1[list(self._M[0]).index(q)+1][l].add(list(self._M[0]).index(q)+1)
+                        else:
+                            nfa1[list(self._M[0]).index(q)+1][l].add(list(self._M[0]).index(self._M[2](q, l))+1)
+                nfa2 = dict()
+                for q in other._M[0]:
+                    nfa2[list(other._M[0]).index(q)+1+len(self._M[0])] = dict()
+                    for l in other._M[1] | {''}:
+                        nfa2[list(other._M[0]).index(q)+1+len(self._M[0])][l] = set()
+                        if l == '':
+                            nfa2[list(other._M[0]).index(q)+1+len(self._M[0])][l].add(list(other._M[0]).index(q)+1+len(self._M[0]))
+                        else:
+                            nfa2[list(other._M[0]).index(q)+1+len(self._M[0])][l].add(list(other._M[0]).index(other._M[2](q, l))+1+len(self._M[0]))
+                nfa = dict()
+                for q in set(nfa1.keys()) | set(nfa2.keys()):
+                    nfa[q] = dict()
+                    for l in self._M[1] | other._M[1] | {''}:
+                        if q in set(nfa1.keys()) - {list(self._M[0]).index(r) + 1 for r in self._M[4]}:
+                            nfa[q][l] = nfa1[q][l]
+                        elif q in {list(self._M[0]).index(r) + 1 for r in self._M[4]}:
+                            if l == '':
+                                nfa[q][l] = nfa1[q][l] | {list(other._M[0]).index(other._M[3]) + 1 + len(self._M[0])}
+                            else:
+                                nfa[q][l] = nfa1[q][l]
+                        elif q in set(nfa2.keys()):
+                            nfa[q][l] = nfa2[q][l]
+                        else:
+                            nfa[q][l] = set()
+                return L((set(nfa1.keys()) | set(nfa2.keys()), self._M[1] | other._M[1], lambda q, l: nfa[q][l], list(self._M[0]).index(self._M[3]) + 1, {list(other._M[0]).index(r) + 1 + len(self._M[0]) for r in other._M[4]}))
+            elif len(other._M) == 6:
+                R = dict()
+                for q in self._M[0]:
+                    R[''.join(['Q', str(q)])] = set()
+                    if q in self._M[4]:
+                        R[''.join(['Q', str(q)])].add('')
+                    for l in self._M[1]:
+                        R[''.join(['Q', str(q)])].add('\u0000'.join([l, ''.join(['Q', str(self._M[2](q, l))])]))
+                return L((set(R.keys()), self._M[1], R, ''.join(['Q', str(self._M[3])]))) + L(other._M)
+        elif len(self._M) == 6:
+            if len(other._M) == 5:
+                R = dict()
+                for q in other._M[0]:
+                    R[''.join(['Q', str(q)])] = set()
+                    if q in other._M[4]:
+                        R[''.join(['Q', str(q)])].add('')
+                    for l in other._M[1]:
+                        R[''.join(['Q', str(q)])].add('\u0000'.join([l, ''.join(['Q', str(other._M[2](q, l))])]))
+                return L(self._M) + L((set(R.keys()), other._M[1], R, ''.join(['Q', str(other._M[3])])))
+            elif len(other._M) == 6:
+                pda1 = dict()
+                for q in self._M[0]:
+                    pda1[list(self._M[0]).index(q) + 1] = dict()
+                    for a in self._M[1] | {''}:
+                        pda1[list(self._M[0]).index(q) + 1][a] = dict()
+                        for b in self._M[2] | {''}:
+                            pda1[list(self._M[0]).index(q) + 1][a][b] = set()
+                            for r in self._M[0]:
+                                for l in self._M[2] | {''}:
+                                    if (r, l) in self._M[3](q, a, b):
+                                        if b != '' and l == '' or b == '' and l != '':
+                                            pda1[list(self._M[0]).index(q) + 1][a][b].add((list(self._M[0]).index(r) + 1, l))
+                                        elif b != '' and l != '':
+                                            pda1[list(self._M[0]).index(q) + 1][a][b].add(
+                                                (len(self._M[0]) + list(self._M[0]).index(q) + 1, ''))
+                                            if list(self._M[0]).index(q) + 1 + len(self._M[0]) not in pda1:
+                                                pda1[list(self._M[0]).index(q) + 1 + len(self._M[0])] = dict()
+                                                for x in self._M[1] | {''}:
+                                                    pda1[list(self._M[0]).index(q) + 1 + len(self._M[0])][x] = dict()
+                                                    for y in self._M[2] | {''}:
+                                                        pda1[list(self._M[0]).index(q) + 1 + len(self._M[0])][x][y] = set()
+                                            pda1[list(self._M[0]).index(q) + 1 + len(self._M[0])][''][''].add((list(self._M[0]).index(r) + 1, l))
+                                        elif b == '' and l == '':
+                                            i = rand.randint(0, len(self._M[2]) - 1)
+                                            pda1[list(self._M[0]).index(q) + 1][a][b].add((len(self._M[0]) + list(self._M[0]).index(q) + 1, list(self._M[2])[i]))
+                                            if list(self._M[0]).index(q) + 1 + len(self._M[0]) not in pda1:
+                                                pda1[list(self._M[0]).index(q) + 1 + len(self._M[0])] = dict()
+                                                for x in self._M[1] | {''}:
+                                                    pda1[list(self._M[0]).index(q) + 1 + len(self._M[0])][x] = dict()
+                                                    for y in self._M[1] | {''}:
+                                                        pda1[list(self._M[0]).index(q) + 1 + len(self._M[0])][x][y] = set()
+                                            pda1[list(self._M[0]).index(q) + 1 + len(self._M[0])][''][list(self._M[2])[i]].add((list(self._M[0]).index(r) + 1, l))
+                i = rand.randint(0, len(self._M[2]) - 1)
+                x = max(pda1.keys())
+                for q in self._M[5]:
+                    pda1[list(self._M[0]).index(q) + 1][''][''].add((x + 1, list(self._M[2])[i]))
+                pda1[x + 1] = dict()
+                for a in self._M[1] | {''}:
+                    pda1[x + 1][a] = dict()
+                    for b in self._M[2] | {''}:
+                        pda1[x + 1][a][b] = set()
+                        if a == '' and b == list(self._M[2])[i]:
+                            pda1[x + 1][a][b].add((x + 2, ''))
+                pda1[x + 2] = dict()
+                for a in self._M[1] | {''}:
+                    pda1[x + 2][a] = dict()
+                    for b in self._M[2] | {''}:
+                        pda1[x + 2][a][b] = set()
+                R1 = dict()
+                for p in set(pda1.keys()):
+                    if 'A({}, {})'.format(p, p) not in R1:
+                        R1['A({}, {})'.format(p, p)] = set()
+                    R1['A({}, {})'.format(p, p)].add('')
+                for p in set(pda1.keys()):
+                    for q in set(pda1.keys()):
+                        for r in set(pda1.keys()):
+                            if 'A({}, {})'.format(p, q) not in R1:
+                                R1['A({}, {})'.format(p, q)] = set()
+                            R1['A({}, {})'.format(p, q)].add('A({}, {})\u0000A({}, {})'.format(p, r, r, q))
+                for p in set(pda1.keys()):
+                    for r in set(pda1.keys()):
+                        for s in set(pda1.keys()):
+                            for q in set(pda1.keys()):
+                                for a in self._M[1] | {''}:
+                                    for b in self._M[1] | {''}:
+                                        for u in self._M[2]:
+                                            if 'A({}, {})'.format(p, q) not in R1:
+                                                R1['A({}, {})'.format(p, q)] = set()
+                                            if (r, u) in pda1[p][a][''] and (q, '') in pda1[s][b][u]:
+                                                R1['A({}, {})'.format(p, q)].add('{}{}A({}, {}){}{}'.format(a, '\u0000' if a != '' else '', r, s, '\u0000' if b != '' else '', b))
+                pda2 = dict()
+                for q in other._M[0]:
+                    pda2[list(other._M[0]).index(q) + 1] = dict()
+                    for a in other._M[1] | {''}:
+                        pda2[list(other._M[0]).index(q) + 1][a] = dict()
+                        for b in other._M[2] | {''}:
+                            pda2[list(other._M[0]).index(q) + 1][a][b] = set()
+                            for r in other._M[0]:
+                                for l in other._M[2] | {''}:
+                                    if (r, l) in other._M[3](q, a, b):
+                                        if b != '' and l == '' or b == '' and l != '':
+                                            pda2[list(other._M[0]).index(q) + 1][a][b].add((list(other._M[0]).index(r) + 1, l))
+                                        elif b != '' and l != '':
+                                            pda2[list(other._M[0]).index(q) + 1][a][b].add((len(other._M[0]) + list(other._M[0]).index(q) + 1, ''))
+                                            if list(other._M[0]).index(q) + 1 + len(other._M[0]) not in pda2:
+                                                pda2[list(other._M[0]).index(q) + 1 + len(other._M[0])] = dict()
+                                                for x in other._M[1] | {''}:
+                                                    pda2[list(other._M[0]).index(q) + 1 + len(other._M[0])][x] = dict()
+                                                    for y in other._M[2] | {''}:
+                                                        pda2[list(other._M[0]).index(q) + 1 + len(other._M[0])][x][y] = set()
+                                            pda2[list(other._M[0]).index(q) + 1 + len(other._M[0])][''][''].add(
+                                                (list(other._M[0]).index(r) + 1, l))
+                                        elif b == '' and l == '':
+                                            i = rand.randint(0, len(other._M[2]) - 1)
+                                            pda2[list(other._M[0]).index(q) + 1][a][b].add((len(other._M[0]) + list(other._M[0]).index(q) + 1, list(other._M[2])[i]))
+                                            if list(other._M[0]).index(q) + 1 + len(other._M[0]) not in pda2:
+                                                pda2[list(other._M[0]).index(q) + 1 + len(other._M[0])] = dict()
+                                                for x in other._M[1] | {''}:
+                                                    pda2[list(other._M[0]).index(q) + 1 + len(other._M[0])][x] = dict()
+                                                    for y in other._M[2] | {''}:
+                                                        pda2[list(other._M[0]).index(q) + 1 + len(other._M[0])][x][y] = set()
+                                            pda2[list(other._M[0]).index(q) + 1 + len(other._M[0])][''][list(other._M[2])[i]].add((list(other._M[0]).index(r) + 1, l))
+                i = rand.randint(0, len(other._M[2]) - 1)
+                x = max(pda2.keys())
+                for q in other._M[5]:
+                    pda2[list(other._M[0]).index(q) + 1][''][''].add((x + 1, list(other._M[2])[i]))
+                pda2[x+1] = dict()
+                for a in other._M[1] | {''}:
+                    pda2[x + 1][a] = dict()
+                    for b in other._M[2] | {''}:
+                        pda2[x + 1][a][b] = set()
+                        if a == '' and b == list(other._M[2])[i]:
+                            pda2[x + 1][a][b].add((x + 2, ''))
+                pda2[x+2] = dict()
+                for a in other._M[1] | {''}:
+                    pda2[x + 2][a] = dict()
+                    for b in other._M[2] | {''}:
+                        pda2[x + 2][a][b] = set()
+                R2 = dict()
+                for p in set(pda2.keys()):
+                    if 'B({}, {})'.format(p, p) not in R2:
+                        R2['B({}, {})'.format(p, p)] = set()
+                    R2['B({}, {})'.format(p, p)].add('')
+                for p in set(pda2.keys()):
+                    for q in set(pda2.keys()):
+                        for r in set(pda2.keys()):
+                            if 'B({}, {})'.format(p, q) not in R2:
+                                R2['B({}, {})'.format(p, q)] = set()
+                            R2['B({}, {})'.format(p, q)].add('B({}, {})\u0000B({}, {})'.format(p, r, r, q))
+                for p in set(pda2.keys()):
+                    for r in set(pda2.keys()):
+                        for s in set(pda2.keys()):
+                            for q in set(pda2.keys()):
+                                for a in other._M[1] | {''}:
+                                    for b in other._M[1] | {''}:
+                                        for u in other._M[2]:
+                                            if 'B({}, {})'.format(p, q) not in R2:
+                                                R2['B({}, {})'.format(p, q)] = set()
+                                            if (r, u) in pda2[p][a][''] and (q, '') in pda2[s][b][u]:
+                                                R2['B({}, {})'.format(p, q)].add('{}{}B({}, {}){}{}'.format(a, '\u0000' if a != '' else '', r, s, '\u0000' if b != '' else '', b))
+                R = R1
+                R.update(R2)
+                R.update({'S': {'A({}, {})\u0000B({}, {})'.format(min(pda1.keys()), max(pda1.keys()), min(pda2.keys()), max(pda2.keys()))}})
+                return L((set(R1.keys()) | set(R2.keys()) | {'S'}, self._M[1] | other._M[1], R, 'S'))
+    def __sub__(self, other):
+        return self & ~other
     def __key(self):
         if len(self._M) == 5:
             return (frozenset(self._M[0]), frozenset(self._M[1]), self._M[2], self._M[3], frozenset(self._M[4]))
